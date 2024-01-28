@@ -5,10 +5,14 @@ import random
 from machine import Pin, SoftSPI
 import st7789py as st7789
 import time
-import axp2101
+from axp2101 import AXP2101
 
 def main():
-    axp2101.pmu_setup()
+    # Setup the PMU chip.
+    twatch_pmu = AXP2101()
+    twatch_pmu.twatch_s3_poweron()
+
+    # Power on the display backlight.
     bl = Pin(45,Pin.OUT)
     bl.on()
 
