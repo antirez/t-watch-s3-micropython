@@ -12,7 +12,7 @@ ruin your device. Use it at your own risk.
 
 ## Installing MicroPython
 
-**WARNING:** after installing MicroPython you will no longer be able to flash the device with `espotools` if you don't press the *boot* button inside the device, accessible under the battery, [as explained here](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library/issues/223#issuecomment-1913183156).
+**WARNING:** after installing MicroPython you will no longer be able to flash the device with `esptools` if you don't press the *boot* button inside the device, accessible under the battery, [as explained here](https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library/issues/223#issuecomment-1913183156).
 
 I just used the generic MicroPython release for the S3 device.
 The file name is `ESP32_GENERIC_S3-20231005-v1.21.0.bin`.
