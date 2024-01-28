@@ -31,11 +31,17 @@ class AXP2101:
         oldval &= 0xff ^ (1<<bit)
         self.write(reg,oldval)
 
+    # Return battery voltage in millivolts.
+    def get_battery_voltage(self):
+        high_bits = self.read(0x34)
+        low_bits = self.read(0x35)
+        return (high_bits&0b111111)<<8 | low_bits
+
     # T-WATCH S3 specific power-on steps.
     def twatch_s3_poweron(self):
         # Read PMU STATUS 1
         pmu_status = self.read(0x00)
-        print("[AXP2110] PMU status 1 at startup", bin(pmu_status))
+        print("[AXP2101] PMU status 1 at startup", bin(pmu_status))
 
         # Set vbus voltage limit to 4.36v
         # Register 0x15 is Input voltage limit control.
@@ -45,7 +51,7 @@ class AXP2101:
 
         # Read it back.
         v = self.read(0x15)
-        print("[AXP2110] vbus voltage limit set to", 3.88+v*0.08)
+        print("[AXP2101] vbus voltage limit set to", 3.88+v*0.08)
 
         # Set input current limit to 100ma. The value for 100ma is just 0,
         # and the regsiter 0x16 is "Input current limit control".
@@ -86,7 +92,7 @@ class AXP2101:
         # that is the one controlling what is ON or OFF:
         for reg in [0x90, 0x91, 0x80]:
             b = self.read(reg)
-            print(f"[AXP2110] ON/OFF Control value for {hex(reg)}:", bin(b))
+            print(f"[AXP2101] ON/OFF Control value for {hex(reg)}:", bin(b))
 
         # Only enable DC1 from register 0x80
         self.write(0x80,1)
@@ -141,3 +147,4 @@ class AXP2101:
 if  __name__ == "__main__":
     twatch_pmu = AXP2101()
     twatch_pmu.twatch_s3_poweron()
+    print("[AXP2101] Battery voltage is", twatch_pmu.get_battery_voltage())

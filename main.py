@@ -11,6 +11,7 @@ def main():
     # Setup the PMU chip.
     twatch_pmu = AXP2101()
     twatch_pmu.twatch_s3_poweron()
+    print("[AXP2101] Battery voltage is", twatch_pmu.get_battery_voltage())
 
     # Power on the display backlight.
     bl = Pin(45,Pin.OUT)
