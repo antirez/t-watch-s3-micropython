@@ -1,4 +1,4 @@
-# code for micropython 1.10 on esp8266
+# Example program for the T-WATCH S3
 
 import random
 
