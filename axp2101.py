@@ -102,6 +102,42 @@ class AXP2101:
         # 0x30 register: ADC channel enable control.
         self.clearbit(0x30,1)
 
+        self.setbit(0x68,0) # Enable battery detection.
+        self.setbit(0x30,0) # Enable battery voltage ADC channel.
+        self.setbit(0x30,2) # Enable vbus voltage ADC channel.
+        self.setbit(0x30,3) # Enable system voltage ADC channel.
+
+        # We disable all IRQs: we don't use them for now.
+        self.write(0x40,0)
+        self.write(0x41,0)
+        self.write(0x42,0)
+
+        # Also clear IRQ status bits, in case later we enable
+        # interrupts.
+        self.write(0x48,0)
+        self.write(0x49,0)
+        self.write(0x4A,0)
+
+        # Disable charging led handling. The device has
+        # no charging led.
+        self.clearbit(0x69,0)
+
+        # Set precharge current limit to 50ma
+        #     constant current charge limit to 100ma
+        #     termination of charge limit to 25ma
+        self.write(0x61,2) # ma = value * 0.25ma
+        self.write(0x62,4) # ma = value * 0.25ma (only up to the value of 8).
+        self.write(0x63,1) # ma = value * 0.25ma
+
+        # Charge voltage limit
+        self.write(0x64,4) # 4 means limit of 4.35v
+
+        # Charge termination voltage for the button battery (RTC)
+        self.write(0x6A,7) # 2.6v + (0.1 * value) = 2.6+0.1*7 = 3.3v
+
+        # Enable button battery charge.
+        self.setbit(0x18,2) # Bit 2 is "Button battery charge enabled"
+
 if  __name__ == "__main__":
     twatch_pmu = AXP2101()
     twatch_pmu.twatch_s3_poweron()
