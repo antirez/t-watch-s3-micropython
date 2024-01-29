@@ -63,10 +63,16 @@ PacketCRCOn = const(1)
 PacketStandardIQ = const(0)
 PacketInvertedIQ = const(1)
 
+# Constants used for listen-before-talk method
+# modem_is_receiving_packet()
+POAPreamble = const(0)
+POAHeader = const(1)
+
 class SX1262:
     def __init__(self, pinset, rx_callback, tx_callback = None):
-        self.receiving = False
+        self.rx_enabled = False # True if we are in receive mode.
         self.tx_in_progress = False
+        self.packet_on_air = False # see modem_is_receiving_packet().
         self.msg_sent = 0
         self.received_callback = rx_callback
         self.transmitted_callback = tx_callback
@@ -76,7 +82,7 @@ class SX1262:
         self.clock_pin = Pin(pinset['clock'])
         self.mosi_pin = Pin(pinset['mosi'])
         self.miso_pin = Pin(pinset['miso'])
-        self.dio_pin = Pin(pinset['dio0'], Pin.IN)
+        self.dio_pin = Pin(pinset['dio'], Pin.IN)
         self.spi = SoftSPI(baudrate=10000000, polarity=0, phase=0, sck=self.clock_pin, mosi=self.mosi_pin, miso=self.miso_pin)
         self.bw = 0 # Currently set bandwidth. Saved to compute freq error.
          
@@ -85,7 +91,7 @@ class SX1262:
         time.sleep_us(500)
         self.reset_pin.on()
         time.sleep_us(500)
-        self.receiving = False
+        self.rx_enabled = False
         self.tx_in_progress = False
 
     def standby(self):
@@ -283,7 +289,7 @@ class SX1262:
     # set a timeout and re-enter receive from time to time?
     def receive(self):
         self.command(SetRxCmd,[0xff,0xff,0xff])
-        self.receiving = True
+        self.rx_enabled = True
     
     def get_irq(self):
         reply = self.command(GetIrqStatusCmd,[0,0,0])
@@ -299,6 +305,9 @@ class SX1262:
         self.clear_irq()
 
         if event & (IRQSourceRxDone|IRQSourceCrcErr):
+            # Packet received. The channel is no longer busy.
+            self.packet_on_air = False
+
             # Obtain packet information.
             bs = self.command(GetRxBufferStatusCmd,[0]*3)
             ps = self.command(GetPacketStatusCmd,[0]*4)
@@ -326,17 +335,46 @@ class SX1262:
             # standby mode. However if we were receiving we
             # need to return back to such state.
             if self.transmitted_callback: self.transmitted_callback()
-            if self.receiving: self.receive()
+            if self.rx_enabled: self.receive()
             self.tx_in_progress = False
+        elif event & IRQSourcePreambleDetected :
+            print("Preamble")
+            # Packet detected, we will return true for some
+            # time when user calls modem_is_receiving_packet().
+            self.packet_on_air = time.ticks_ms()
+            self.packet_on_air_type = POAPreamble
+        elif event & IRQSourceHeaderValid:
+            print("HDR")
+            # The same as above, but if we also detected a header
+            # we will take this condition for a bit longer.
+            self.packet_on_air = time.ticks_ms()
+            self.packet_on_air_type = POAHeader
         else: 
             print("SX1262: not handled event IRQ flags "+bin(event))
 
+    def get_instantaneous_rss(self):
+        data = self.command(0x15,[0,0])
+        return -data[2]/2
+
+    # This modem is used for listen-before-talk and returns true if
+    # even if the interrupt of packet reception completed was not yet
+    # called, we believe there is a current packet-on-air that we are
+    # possibly receiving. This way we can avoid to transmit while there
+    # is already a packet being transmitted, avoiding collisions.
+    #
+    # While the RX1276 has a register that tells us if a reception is
+    # in progress, the RX1262 lacks it, so we try to do our best using
+    # other systems...
     def modem_is_receiving_packet(self):
-        # FIXME: use preamble detection + timeout like in
-        # the C port of FreakWAN to implement this even if the
-        # limits of SX1262. Also consider checking the RSSI
-        # instantaneous reading value.
-        return False
+        if self.packet_on_air != False:
+            # We are willing to wait more or less before cleaning
+            # the channel busy flag, depending on the fact we
+            # were able to detect just a preamble or also a valid
+            # header.
+            timeout = 2000 if self.packet_on_air_type == POAPreamble else 5000
+            age = time.ticks_diff(time.ticks_ms(),self.packet_on_air)
+            if age > timeout: self.packet_on_air = False
+        return self.packet_on_air != False
 
     # Send the specified packet immediately. Will raise the interrupt
     # when finished.
@@ -354,7 +392,7 @@ if  __name__ == "__main__":
         'clock': 3,
         'mosi': 1,
         'miso': 4,
-        'dio0': 9
+        'dio': 9
     }
 
     def onrx(lora_instance,packet,rssi,bad_crc):
@@ -366,4 +404,8 @@ if  __name__ == "__main__":
     lora.receive()
     while True:
         # lora.show_status()
-        time.sleep(1)
+        print("channel_busy",lora.modem_is_receiving_packet())
+        time.sleep(0.1)
+        if False:
+            time.sleep(10)
+            lora.send(bytearray(b'\x00\x024j\x92\x11\x0f\x0c\x8b\x95\xa1\xe70\x07anti433Hi 626'))
