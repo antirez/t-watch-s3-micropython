@@ -43,6 +43,7 @@ ReadRegisterCmd = const(0x1d)
 ReadBufferCmd = const(0x1e)
 SetStandByCmd = const(0x80)
 SetRxCmd = const(0x82)
+SetTxCmd = const(0x83)
 SleepCmd = const(0x84)
 SetRfFrequencyCmd = const(0x86)
 SetPacketTypeCmd = const(0x8a)
@@ -53,6 +54,14 @@ SetBufferBaseAddressCmd = const(0x8f)
 SetPaConfigCmd = const(0x95)
 SetDIO3AsTCXOCtrlCmd = const(0x97)
 SetDIO2AsRfSwitchCtrlCmd = const(0x9d)
+
+# Constants for SetPacketParam() arguments
+PacketHeaderTypeExplicit = const(0)
+PacketHeaderTypeImplicit = const(1)
+PacketCRCOff = const(1)
+PacketCRCOn = const(1)
+PacketStandardIQ = const(0)
+PacketInvertedIQ = const(1)
 
 class SX1262:
     def __init__(self, pinset, rx_callback, tx_callback = None):
@@ -152,6 +161,16 @@ class SX1262:
                (rf_freq & 0xff)]
         self.command(SetRfFrequencyCmd, arg)
 
+    def set_packet_params(self, preamble_len = 12, header_type = PacketHeaderTypeExplicit, payload_len = 255, crc = PacketCRCOn, iq_setup = PacketStandardIQ):
+        pp = bytearray(6)
+        pp[0] = preamble_len >> 8
+        pp[1] = preamble_len & 0xff
+        pp[2] = header_type
+        pp[3] = payload_len
+        pp[4] = crc
+        pp[5] = iq_setup
+        self.command(SetPacketParamsCmd,pp)
+
     def begin(self):
         self.reset()
         self.deselect_chip()
@@ -190,15 +209,7 @@ class SX1262:
         self.command(SetModulationParamsCmd,lp)
 
         # Set packet params.
-        pp = bytearray(6)
-        preamble_len = 12 # This is a very reasonable value that works well.
-        pp[0] = preamble_len >> 8
-        pp[1] = preamble_len & 0xff
-        pp[2] = 0       # Explicit header
-        pp[3] = 0xff    # Max payload length
-        pp[4] = 1       # CRC on
-        pp[5] = 0       # Standard IQ setup
-        self.command(SetPacketParamsCmd,pp)
+        self.set_packet_params()
 
         # Set RF frequency.
         self.set_frequency(freq)
@@ -327,13 +338,13 @@ class SX1262:
         # instantaneous reading value.
         return False
 
+    # Send the specified packet immediately. Will raise the interrupt
+    # when finished.
     def send(self, data): 
         self.tx_in_progress = True
-        self.spi_write(RegDioMapping1, Dio0TxDone)
-        self.spi_write(RegFifoAddrPtr, 0) # Write data starting from FIFO byte 0
-        self.spi_write(RegFifo, data)     # Populate FIFO with message
-        self.spi_write(RegPayloadLength, len(data))  # Store len of message
-        self.spi_write(RegOpMode, ModeTx) # Switch to TX mode
+        self.set_packet_params(payload_len = len(data))
+        self.writebuf(0x00,data)
+        self.command(SetTxCmd,[0,0,0]) # Enter TX mode without timeout.
 
 if  __name__ == "__main__":
     pinset = {
