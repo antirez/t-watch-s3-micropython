@@ -51,6 +51,8 @@ SetPacketParamsCmd = const(0x8c)
 SetTxParamsCmd = const(0x8e)
 SetBufferBaseAddressCmd = const(0x8f)
 SetPaConfigCmd = const(0x95)
+SetDIO3AsTCXOCtrlCmd = const(0x97)
+SetDIO2AsRfSwitchCtrlCmd = const(0x9d)
 
 class SX1262:
     def __init__(self, pinset, rx_callback, tx_callback = None):
@@ -211,10 +213,10 @@ class SX1262:
         tcxo_config[1] = (tcxo_delay >> 16) & 0xff
         tcxo_config[2] = (tcxo_delay >> 8) & 0xff
         tcxo_config[3] = (tcxo_delay >> 0) & 0xff
-        lora.command(0x97,tcxo_config)
+        self.command(SetDIO3AsTCXOCtrlCmd,tcxo_config)
 
         # Set DIO2 as RF switch like in Semtech examples.
-        lora.command(0x9d,1)
+        self.command(SetDIO2AsRfSwitchCtrlCmd,1)
 
         # Set the power amplifier configuration.
         paconfig = bytearray(4)
@@ -272,37 +274,6 @@ class SX1262:
         self.command(SetRxCmd,[0xff,0xff,0xff])
         self.receiving = True
     
-    def spi_write(self, regid, data): 
-        # Writes are performed sending as first byte the register
-        # we want to address, with the highest bit set.
-        if isinstance(data,int):
-            spi_payload = bytes([regid|0x80,data])
-        elif isinstance(data,str):
-            spi_payload = bytes([regid|0x80]) + bytes(data, 'utf-8')
-        elif isinstance(data,bytes):
-            spi_payload = bytes([regid|0x80]) + data
-        else:
-            raise Exception("spi_write can only handle integers and strings")
-        self.select_chip()
-        self.spi.write(spi_payload)
-        self.deselect_chip()
-
-    # SPI read. For simplicity in the API, if the read len is one
-    # we return the byte value itself (the first byte is not data).
-    # However for bulk reads we return the string (minus the first
-    # byte, as said).
-    def spi_read(self, regid, l=1):
-        # Reads are similar to writes but we don't need to set
-        # the highest bit of the byte, so the SPI library will take
-        # care of writing the register.
-        self.select_chip()
-        if l == 1:
-            rcv = self.spi.read(l+1,regid)[1]
-        else:
-            rcv = self.spi.read(l+1,regid)[1:]
-        self.deselect_chip()
-        return rcv
-
     def get_irq(self):
         reply = self.command(GetIrqStatusCmd,[0,0,0])
         return (reply[2]<<8) | reply[3]
@@ -316,7 +287,7 @@ class SX1262:
         event = self.get_irq()
         self.clear_irq()
 
-        if event & IRQSourceRxDone:
+        if event & (IRQSourceRxDone|IRQSourceCrcErr):
             # Obtain packet information.
             bs = self.command(GetRxBufferStatusCmd,[0]*3)
             ps = self.command(GetPacketStatusCmd,[0]*4)
@@ -328,41 +299,17 @@ class SX1262:
             snr = ps[3]-256 if ps[3] > 128 else ps[3] # Convert to unsigned
             snr /= 4 # The reported value is upscaled 4 times.
 
-            print(f"RX packet {packet_len} bytes at {packet_start} RSSI: {rssi}")
             packet = self.readbuf(packet_start,packet_len)
-            print("Packet data: ",packet)
-            return
-
-            bad_crc = (event & IRQPayloadCrcError) != 0
-            # Read data from the FIFO
-            addr = self.spi_read(RegFifoRxCurrentAddr)
-            self.spi_write(RegFifoAddrPtr, addr) # Read starting from addr
-            packet_len = self.spi_read(RegRxNbBytes)
-            packet = self.spi_read(RegFifo, packet_len)
-            snr = self.spi_read(RegPktSnrValue)
-            snr /= 4 # Packet SNR * 0.25, section 3.5.5 of chip spec.
-            rssi = self.spi_read(RegPktRssiValue) 
-
-            # Convert RSSI, also taking into account SNR, but only when the
-            # message we received has a power under the noise level. Odd
-            # but possible with LoRa modulation.
-            #
-            # We use the formula found in the chip datasheet.
-            # Note: this forumla is correct for HF (high frequency) port,
-            # but otherwise the constant -157 should be replaced with
-            # -164.
-            if snr >= 0:
-                rssi = round(-157+16/15*rssi,2)
-            else:
-                rssi = round(-157+rssi+snr,2)
+            bad_crc = (event & IRQSourceCrcErr) != 0
 
             if bad_crc:
-                print("SX1276: packet with bad CRC received")
+                print("SX1262: packet with bad CRC received")
 
             # Call the callback the user registered, if any.
             if self.received_callback:
                 self.received_callback(self, packet, rssi, bad_crc)
         elif event & IRQSourceTxDone:
+            print("SX1262: packet successfully transmitted")
             self.msg_sent += 1
             # After sending a message, the chip will return in
             # standby mode. However if we were receiving we
@@ -371,7 +318,7 @@ class SX1262:
             if self.receiving: self.receive()
             self.tx_in_progress = False
         else: 
-            print("SX1276: not handled event IRQ flags "+bin(event))
+            print("SX1262: not handled event IRQ flags "+bin(event))
 
     def modem_is_receiving_packet(self):
         # FIXME: use preamble detection + timeout like in
@@ -399,8 +346,8 @@ if  __name__ == "__main__":
         'dio0': 9
     }
 
-    def onrx(data):
-        print(data)
+    def onrx(lora_instance,packet,rssi,bad_crc):
+        print(f"Received packet {packet} RSSI:{rssi} bad_crc:{bad_crc}")
 
     lora = SX1262(pinset=pinset,rx_callback=onrx)
     lora.begin()
