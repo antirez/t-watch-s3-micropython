@@ -37,6 +37,8 @@ SetDioIrqParamsCmd = const(0x08)
 WriteRegisterCmd = const(0x0d)
 WriteBufferCmd = const(0x0e)
 GetIrqStatusCmd = const(0x12)
+GetRxBufferStatusCmd = const(0x13)
+GetPacketStatusCmd = const(0x14)
 ReadRegisterCmd = const(0x1d)
 ReadBufferCmd = const(0x1e)
 SetStandByCmd = const(0x80)
@@ -242,6 +244,7 @@ class SX1262:
         # to the MCU.
         self.dio_pin.irq(handler=self.txrxdone, trigger=Pin.IRQ_RISING)
         self.command(SetDioIrqParamsCmd,[0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff])
+        self.clear_irq()
 
         # Set sync word to 0x12 (private network).
         # Note that "12" is in the most significant hex digits of
@@ -312,9 +315,16 @@ class SX1262:
     def txrxdone(self, pin):
         event = self.get_irq()
         self.clear_irq()
-        print("txrxdone()", bin(event))
-        return
-        if event & IRQRxDone:
+
+        if event & IRQSourceRxDone:
+            bs = self.command(GetRxBufferStatusCmd,[0]*3)
+            buf_len = bs[2]
+            buf_start = bs[3]
+            print(f"RX packet {buf_len} bytes at {buf_start}")
+            packet = self.readbuf(buf_start,buf_len)
+            print("Packet data: ",packet)
+            return
+
             bad_crc = (event & IRQPayloadCrcError) != 0
             # Read data from the FIFO
             addr = self.spi_read(RegFifoRxCurrentAddr)
@@ -344,7 +354,7 @@ class SX1262:
             # Call the callback the user registered, if any.
             if self.received_callback:
                 self.received_callback(self, packet, rssi, bad_crc)
-        elif event & IRQTxDone:
+        elif event & IRQSourceTxDone:
             self.msg_sent += 1
             # After sending a message, the chip will return in
             # standby mode. However if we were receiving we
@@ -353,13 +363,14 @@ class SX1262:
             if self.receiving: self.receive()
             self.tx_in_progress = False
         else: 
-            print("SX1276: not handled event IRQ flags "+str(event))
-
-    def get_modem_stat(self):
-        return self.spi_read(RegModemStat)
+            print("SX1276: not handled event IRQ flags "+bin(event))
 
     def modem_is_receiving_packet(self):
-        return self.get_modem_stat() & ModemStatusSignalDetected
+        # FIXME: use preamble detection + timeout like in
+        # the C port of FreakWAN to implement this even if the
+        # limits of SX1262. Also consider checking the RSSI
+        # instantaneous reading value.
+        return False
 
     def send(self, data): 
         self.tx_in_progress = True
@@ -368,19 +379,6 @@ class SX1262:
         self.spi_write(RegFifo, data)     # Populate FIFO with message
         self.spi_write(RegPayloadLength, len(data))  # Store len of message
         self.spi_write(RegOpMode, ModeTx) # Switch to TX mode
-
-    def get_freq_error(self):
-        # Read 20 bit two's complement frequency error indicator.
-        fei = (self.spi_read(RegFeiMsb) << 16) | (self.spi_read(RegFeiMsb) << 8) | self.spi_read(RegFeiLsb)
-        # Convert negative values from two's complement.
-        if fei & (1<<19):
-            fei = fei ^ (1<<19) # Clear sign bit
-            fei = fei ^ 0b1111111111111111111 # Invert bits
-            fei = -(fei+1) # Obtain negative value
-        # Convert value in Hertz (section 4.1.5 of datasheet)
-        errhz = fei*0.524288 # Magic constant is 2**24 / 32e6
-        errhz = int(errhz*self.bw/500)
-        return errhz
 
 if  __name__ == "__main__":
     pinset = {
