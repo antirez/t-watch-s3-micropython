@@ -329,7 +329,6 @@ class SX1262:
             if self.received_callback:
                 self.received_callback(self, packet, rssi, bad_crc)
         elif event & IRQSourceTxDone:
-            print("SX1262: packet successfully transmitted")
             self.msg_sent += 1
             # After sending a message, the chip will return in
             # standby mode. However if we were receiving we
@@ -338,13 +337,11 @@ class SX1262:
             if self.rx_enabled: self.receive()
             self.tx_in_progress = False
         elif event & IRQSourcePreambleDetected :
-            print("Preamble")
             # Packet detected, we will return true for some
             # time when user calls modem_is_receiving_packet().
             self.packet_on_air = time.ticks_ms()
             self.packet_on_air_type = POAPreamble
         elif event & IRQSourceHeaderValid:
-            print("HDR")
             # The same as above, but if we also detected a header
             # we will take this condition for a bit longer.
             self.packet_on_air = time.ticks_ms()
