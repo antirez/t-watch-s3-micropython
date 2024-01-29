@@ -389,6 +389,7 @@ class SX1262:
         self.writebuf(0x00,data)
         self.command(SetTxCmd,[0,0,0]) # Enter TX mode without timeout.
 
+# Example usage.
 if  __name__ == "__main__":
     pinset = {
         'busy': 7,
@@ -400,16 +401,23 @@ if  __name__ == "__main__":
         'dio': 9
     }
 
+    # The callback will be called every time a packet was
+    # received.
     def onrx(lora_instance,packet,rssi,bad_crc):
         print(f"Received packet {packet} RSSI:{rssi} bad_crc:{bad_crc}")
 
     lora = SX1262(pinset=pinset,rx_callback=onrx)
-    lora.begin()
-    lora.configure(869500000, 250000, 8, 12, 22)
-    lora.receive()
-    lora.show_status()
+    lora.begin() # Initialize the chip.
+    lora.configure(869500000, 250000, 8, 12, 22) # Set our configuration.
+    lora.receive() # Enter RX mode.
+    lora.show_status() # Show the current device mode.
+
+    # Send packets from time to time, while receiving if there
+    # is something in the air.
     while True:
         if True:
             time.sleep(10)
             # Example packet in FreakWAN format.
+            # Note that after we send a packet, if we were in
+            # receive mode, we will return back in receive mode.
             lora.send(bytearray(b'\x00\x024j\x92\x11\x0f\x0c\x8b\x95\xa1\xe70\x07anti433Hi 626'))
