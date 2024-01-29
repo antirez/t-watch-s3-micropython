@@ -5,6 +5,10 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
+# TODO:
+# - Calibrate depending on frequency selected after every configure() call.
+# - Improve modem_is_receiving_packet() if possible at all with the SX1262.
+
 from machine import Pin, SoftSPI
 from micropython import const
 import time, struct, urandom
@@ -17,6 +21,7 @@ RegRxGain_PowerSaving = const(0x94) # Value for RegRxGain
 RegRxGain_Boosted = const(0x96)     # Value for RegRxGain
 RegLoRaSyncWordMSB = const(0x0740)
 RegLoRaSyncWordLSB = const(0x0741)
+RegTxClampConfig = const(0x08d8)
 
 # Dio0 mapping
 IRQSourceNone = const(0)
@@ -183,6 +188,11 @@ class SX1262:
         self.standby()              # SX126x gets configured in standby.
         self.command(SetPacketTypeCmd,0x01) # Put the chip in LoRa mode.
 
+        # Apply fix for PA clamping as specified in datasheet.
+        curval = self.readreg(RegTxClampConfig)[0]
+        curval |= 0x1E
+        self.writereg(RegTxClampConfig,curval)
+
     # Set the radio parameters. Allowed spreadings are from 6 to 12.
     # Bandwidth and coding rate are listeed below in the dictionaries.
     # TX power is from -9 to +22 dbm.
@@ -270,8 +280,6 @@ class SX1262:
         # the two registers: [1]4 and [2]4.
         self.writereg(RegLoRaSyncWordMSB,0x14)
         self.writereg(RegLoRaSyncWordLSB,0x24)
-
-        # TODO: calibrate depending on frequency selected.
 
     # This is just for debugging. We can understand if a given command
     # caused a failure while debugging the driver since the command status
@@ -399,10 +407,9 @@ if  __name__ == "__main__":
     lora.begin()
     lora.configure(869500000, 250000, 8, 12, 22)
     lora.receive()
+    lora.show_status()
     while True:
-        # lora.show_status()
-        print("channel_busy",lora.modem_is_receiving_packet())
-        time.sleep(0.1)
-        if False:
+        if True:
             time.sleep(10)
+            # Example packet in FreakWAN format.
             lora.send(bytearray(b'\x00\x024j\x92\x11\x0f\x0c\x8b\x95\xa1\xe70\x07anti433Hi 626'))
