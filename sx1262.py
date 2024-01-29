@@ -317,11 +317,19 @@ class SX1262:
         self.clear_irq()
 
         if event & IRQSourceRxDone:
+            # Obtain packet information.
             bs = self.command(GetRxBufferStatusCmd,[0]*3)
-            buf_len = bs[2]
-            buf_start = bs[3]
-            print(f"RX packet {buf_len} bytes at {buf_start}")
-            packet = self.readbuf(buf_start,buf_len)
+            ps = self.command(GetPacketStatusCmd,[0]*4)
+
+            # Extract packet information.
+            packet_len = bs[2]
+            packet_start = bs[3]
+            rssi = -ps[2]/2 # Average RSSI in dB.
+            snr = ps[3]-256 if ps[3] > 128 else ps[3] # Convert to unsigned
+            snr /= 4 # The reported value is upscaled 4 times.
+
+            print(f"RX packet {packet_len} bytes at {packet_start} RSSI: {rssi}")
+            packet = self.readbuf(packet_start,packet_len)
             print("Packet data: ",packet)
             return
 
