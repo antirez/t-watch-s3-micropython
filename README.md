@@ -69,6 +69,17 @@ the framebuffer implementation, together with the other graphical primitives
 available, and in general makes adapting other code (for example written
 for the SD1306 oled display) to this display much simpler.
 
+## Running the examples
+
+### Scroller
+
+The Scroller example shows how to use the TFT driver in monochrome
+mode, to save memory in the framebuffer. To test it:
+
+talk32 /dev/tty.usbmodem1245661 put st7789py.py
+talk32 /dev/tty.usbmodem1245661 put axp2101.py
+talk32 /dev/tty.usbmodem1234561 run examples/scroller.py
+
 ## Work in progress
 
 This is a work in progress, my goal is to just gain enough access to the
