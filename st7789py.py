@@ -26,6 +26,7 @@ ST77XX_RAMWR = const(0x2C)
 ST77XX_RAMRD = const(0x2E)
 
 ST77XX_PTLAR = const(0x30)
+ST77XX_VSCRDEF = const(0x33)
 ST77XX_COLMOD = const(0x3A)
 ST7789_MADCTL = const(0x36)
 
@@ -70,17 +71,6 @@ def delay_ms(ms):
     time.sleep_ms(ms)
 
 
-def color565(r, g=0, b=0):
-    """Convert red, green and blue values (0-255) into a 16-bit 565 encoding.  As
-    a convenience this is also available in the parent adafruit_rgb_display
-    package namespace."""
-    try:
-        r, g, b = r  # see if the first var is a tuple/list
-    except TypeError:
-        pass
-    return (r & 0xf8) << 8 | (g & 0xfc) << 3 | b >> 3
-
-
 class ST77xx:
     def __init__(self, spi, width, height, reset, dc, cs=None, backlight=None,
                  xstart=-1, ystart=-1):
@@ -117,6 +107,10 @@ class ST77xx:
                 "Unsupported display. Only 240x240 and 135x240 are supported "
                 "without xstart and ystart provided"
             )
+
+    def color565(self, r=0, g=0, b=0):
+        # Convert red, green and blue values (0-255) into a 16-bit 565 encoding.
+        return (r & 0xf8) << 8 | (g & 0xfc) << 3 | b >> 3
 
     def dc_low(self):
         self.dc.off()
@@ -303,7 +297,7 @@ class ST7789(ST77xx):
         super().init()
         self._set_color_mode(color_mode)
         delay_ms(50)
-        self._set_mem_access_mode(4, True, True, False)
+        self._set_mem_access_mode(0, False, False, False)
         self.inversion_mode(True)
         delay_ms(10)
         self.write(ST77XX_NORON)
