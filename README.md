@@ -58,7 +58,16 @@ display.init()
 ```
 
 The speedup is around 20x. A full fill of the display with pixels of the
-same color takes around 53 milliseconds.
+same color takes around 29 milliseconds.
+
+The ST7789 display driver in this repository was rewritten in order to
+use the MicroPython framebuffer abstraction (at the cost of some memory).
+It means that normally we write in the framebuffer, and only blit the
+content to the actual screen when the `show` method is called.
+This improves performances, allows to use the bitmap font available in
+the framebuffer implementation, together with the other graphical primitives
+available, and in general makes adapting other code (for example written
+for the SD1306 oled display) to this display much simpler.
 
 ## Work in progress
 
