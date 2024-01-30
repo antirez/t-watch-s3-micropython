@@ -110,6 +110,7 @@ class ST7789:
             self.rawbuffer = bytearray(width*height//8)
             self.fb = framebuf.FrameBuffer(self.rawbuffer,width,height,
                                            framebuf.MONO_HLSB)
+            self.mono_row = bytearray(self.width*2) # Mono -> RGB565 row conv.
             # See the show() method. The conversion map is useful
             # to speedup rendering a bitmap as RGB565.
             self.mono_conv_map = {
@@ -260,14 +261,14 @@ class ST7789:
         self._set_rows(y0, y1)
         self.write(ST77XX_RAMWR)
 
+    @micropython.native
     def show(self):
         self.set_window(0, 0, self.width-1,self.height-1)
         if self.mono:
-            row = bytearray(self.width*2)
             for i in range(0,len(self.rawbuffer),self.width//8):
                 for j in range(self.width//8):
-                    row[j*16:(j+1)*16] = self.mono_conv_map[self.rawbuffer[i+j]]
-                self.write(None, row)
+                    self.mono_row[j*16:(j+1)*16] = self.mono_conv_map[self.rawbuffer[i+j]]
+                self.write(None, self.mono_row)
         else:
             self.write(None, self.rawbuffer)
 
