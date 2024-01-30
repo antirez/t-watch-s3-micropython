@@ -1,5 +1,11 @@
 # This code is originally from https://github.com/devbis/st7789py_mpy
 # It's under the MIT license as well.
+#
+# Rewritten in terms of MicroPython framebuffer by Salvatore Sanfilippo.
+#
+# Copyright (C) 2024 Salvatore Sanfilippo <antirez@gmail.com>
+# All Rights Reserved
+# All the changes released under the MIT license as the original code.
 
 import time
 from micropython import const
@@ -64,12 +70,6 @@ WHITE = const(0xFFFF)
 _ENCODE_PIXEL = ">H"
 _ENCODE_POS = ">HH"
 _DECODE_PIXEL = ">BBB"
-
-_BUFFER_SIZE = const(256)
-
-
-def delay_ms(ms):
-    time.sleep_ms(ms)
 
 class ST7789:
     def __init__(self, spi, width, height, reset, dc, cs=None, backlight=None,
@@ -159,16 +159,16 @@ class ST7789:
     def hard_reset(self):
         self.cs_low()
         self.reset_high()
-        delay_ms(50)
+        time.sleep_ms(50)
         self.reset_low()
-        delay_ms(50)
+        time.sleep_ms(50)
         self.reset_high()
-        delay_ms(150)
+        time.sleep_ms(150)
         self.cs_high()
 
     def soft_reset(self):
         self.write(ST77XX_SWRESET)
-        delay_ms(150)
+        time.sleep_ms(150)
 
     def sleep_mode(self, value):
         if value:
@@ -192,15 +192,15 @@ class ST7789:
 
         color_mode=ColorMode_65K | ColorMode_16bit
         self._set_color_mode(color_mode)
-        delay_ms(50)
+        time.sleep_ms(50)
         self._set_mem_access_mode(0, False, False, False)
         self.inversion_mode(True)
-        delay_ms(10)
+        time.sleep_ms(10)
         self.write(ST77XX_NORON)
-        delay_ms(10)
+        time.sleep_ms(10)
         self.fill(0)
         self.write(ST77XX_DISPON)
-        delay_ms(500)
+        time.sleep_ms(500)
 
     def _set_mem_access_mode(self, rotation, vert_mirror, horz_mirror, is_bgr):
         rotation &= 7
