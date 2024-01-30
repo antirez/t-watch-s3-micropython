@@ -42,7 +42,7 @@ def main():
             display.pixel(random.randint(0,240),
                           random.randint(0,240),
                           display.color565(255,255,255))
-        display.refresh()
+        display.show()
         elapsed = time.ticks_ms() - start
         print("Ticks per screen fill:", elapsed)
 

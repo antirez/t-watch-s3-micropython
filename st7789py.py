@@ -247,7 +247,10 @@ class ST7789:
         self._set_rows(y0, y1)
         self.write(ST77XX_RAMWR)
 
-    def refresh(self):
+    def show(self):
         self.set_window(0, 0, self.width-1,self.height-1)
         self.write(None, self.rawbuffer)
 
+    def contrast(self,level):
+        # TODO: implement me!
+        pass
