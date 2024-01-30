@@ -58,6 +58,7 @@ SetTxParamsCmd = const(0x8e)
 SetBufferBaseAddressCmd = const(0x8f)
 SetPaConfigCmd = const(0x95)
 SetDIO3AsTCXOCtrlCmd = const(0x97)
+CalibrateImageCmd = const(0x98)
 SetDIO2AsRfSwitchCtrlCmd = const(0x9d)
 
 # Constants for SetPacketParam() arguments
@@ -280,6 +281,17 @@ class SX1262:
         # the two registers: [1]4 and [2]4.
         self.writereg(RegLoRaSyncWordMSB,0x14)
         self.writereg(RegLoRaSyncWordLSB,0x24)
+
+        # Calibrate for the specific selected frequency
+        if 430 <= freq <= 440: f1,f2 = 0x6b,0x6f
+        elif 470 <= freq <= 510: f1,f2 = 0x75,0x81
+        elif 779 <= freq <= 787: f1,f2 = 0xc1,0xc5
+        elif 863 <= freq <= 870: f1,f2 = 0xd7,0xdb
+        elif 902 <= freq <= 928: f1,f2 = 0xe1,0xe9
+        else: f1,f2 = None,None
+
+        if f1 and f2:
+            self.command(CalibrateImageCmd,[f1,f2])
 
     # This is just for debugging. We can understand if a given command
     # caused a failure while debugging the driver since the command status
