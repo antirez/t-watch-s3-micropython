@@ -76,9 +76,14 @@ for the SD1306 oled display) to this display much simpler.
 The Scroller example shows how to use the TFT driver in monochrome
 mode, to save memory in the framebuffer. To test it:
 
-talk32 /dev/tty.usbmodem1245661 put st7789py.py
-talk32 /dev/tty.usbmodem1245661 put axp2101.py
-talk32 /dev/tty.usbmodem1234561 run examples/scroller.py
+    talk32 /dev/tty.usbmodem1245661 put st7789py.py
+    talk32 /dev/tty.usbmodem1245661 put axp2101.py
+    talk32 /dev/tty.usbmodem1234561 run examples/scroller.py
+
+You will see numbers on the screen like if it was a terminal
+outputting a sequence, with vertical scrolling and so forth.
+The Scroller also implements line wrapping, but that's not
+visible in the example.
 
 ## Work in progress
 
