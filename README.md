@@ -37,6 +37,29 @@ Then enter the device in REPL mode:
 Hit Ctrl+D to reset the device and you should see a demo usign the
 TFT screen. The screen should change color every 2 seconds.
 
+## Display SPI setup
+
+Please note that the MicroPython SoftSPI implementation is *very* slow.
+It is important to use the hardware SPI of the ESP32-S3. In order to
+setup the SPI for the display, use code like this:
+
+```
+# Our display does not have a MISO pin, but the MicroPython
+# SPI implementation does not allow to avoid specifying one, so
+# we use just a not used pin in the device.
+spi = SPI(1, baudrate=40000000, polarity=1, sck=18, mosi=13, miso=37)
+display = st7789.ST7789(
+    spi, 240, 240,
+    reset=False,
+    dc=Pin(38, Pin.OUT),
+    cs=Pin(12, Pin.OUT),
+)
+display.init()
+```
+
+The speedup is around 20x. A full fill of the display with pixels of the
+same color takes around 53 milliseconds.
+
 ## Work in progress
 
 This is a work in progress, my goal is to just gain enough access to the
