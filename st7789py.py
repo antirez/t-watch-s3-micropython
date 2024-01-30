@@ -4,6 +4,7 @@
 import time
 from micropython import const
 import ustruct as struct
+import framebuf
 
 # commands
 ST77XX_NOP = const(0x00)
@@ -70,8 +71,7 @@ _BUFFER_SIZE = const(256)
 def delay_ms(ms):
     time.sleep_ms(ms)
 
-
-class ST77xx:
+class ST7789:
     def __init__(self, spi, width, height, reset, dc, cs=None, backlight=None,
                  xstart=-1, ystart=-1):
         """
@@ -86,9 +86,6 @@ class ST77xx:
         self.width = width
         self.height = height
         self.spi = spi
-        if spi is None:
-            import machine
-            self.spi = machine.SPI(1, baudrate=40000000, phase=0, polarity=1)
         self.reset = reset
         self.dc = dc
         self.cs = cs
@@ -107,6 +104,20 @@ class ST77xx:
                 "Unsupported display. Only 240x240 and 135x240 are supported "
                 "without xstart and ystart provided"
             )
+
+        self.rawbuffer = bytearray(240*240*2)
+        self.fb = framebuf.FrameBuffer(self.rawbuffer,240,240,framebuf.RGB565)
+        self.fill = self.fb.fill
+        self.pixel = self.fb.pixel
+        self.hline = self.fb.hline
+        self.vline = self.fb.vline
+        self.line = self.fb.line
+        self.rect = self.fb.rect
+        self.ellipse = self.fb.ellipse
+        self.poly = self.fb.poly
+        self.text = self.fb.text
+        self.scroll = self.fb.scroll
+        self.blit = self.fb.blit
 
     def color565(self, r=0, g=0, b=0):
         # Convert red, green and blue values (0-255) into a 16-bit 565 encoding.
@@ -179,6 +190,18 @@ class ST77xx:
         self.soft_reset()
         self.sleep_mode(False)
 
+        color_mode=ColorMode_65K | ColorMode_16bit
+        self._set_color_mode(color_mode)
+        delay_ms(50)
+        self._set_mem_access_mode(0, False, False, False)
+        self.inversion_mode(True)
+        delay_ms(10)
+        self.write(ST77XX_NORON)
+        delay_ms(10)
+        self.fill(0)
+        self.write(ST77XX_DISPON)
+        delay_ms(500)
+
     def _set_mem_access_mode(self, rotation, vert_mirror, horz_mirror, is_bgr):
         rotation &= 7
         value = {
@@ -205,10 +228,6 @@ class ST77xx:
         """Encode a postion into bytes."""
         return struct.pack(_ENCODE_POS, x, y)
 
-    def _encode_pixel(self, color):
-        """Encode a pixel color into bytes."""
-        return struct.pack(_ENCODE_PIXEL, color)
-
     def _set_columns(self, start, end):
         if start > end or end >= self.width:
             return
@@ -228,80 +247,7 @@ class ST77xx:
         self._set_rows(y0, y1)
         self.write(ST77XX_RAMWR)
 
-    def vline(self, x, y, length, color):
-        self.fill_rect(x, y, 1, length, color)
+    def refresh(self):
+        self.set_window(0, 0, self.width-1,self.height-1)
+        self.write(None, self.rawbuffer)
 
-    def hline(self, x, y, length, color):
-        self.fill_rect(x, y, length, 1, color)
-
-    def pixel(self, x, y, color):
-        self.set_window(x, y, x, y)
-        self.write(None, self._encode_pixel(color))
-
-    def blit_buffer(self, buffer, x, y, width, height):
-        self.set_window(x, y, x + width - 1, y + height - 1)
-        self.write(None, buffer)
-
-    def rect(self, x, y, w, h, color):
-        self.hline(x, y, w, color)
-        self.vline(x, y, h, color)
-        self.vline(x + w - 1, y, h, color)
-        self.hline(x, y + h - 1, w, color)
-
-    def fill_rect(self, x, y, width, height, color):
-        self.set_window(x, y, x + width - 1, y + height - 1)
-        chunks, rest = divmod(width * height, _BUFFER_SIZE)
-        pixel = self._encode_pixel(color)
-        self.dc_high()
-        if chunks:
-            data = pixel * _BUFFER_SIZE
-            for _ in range(chunks):
-                self.write(None, data)
-        if rest:
-            self.write(None, pixel * rest)
-
-    def fill(self, color):
-        self.fill_rect(0, 0, self.width, self.height, color)
-
-    def line(self, x0, y0, x1, y1, color):
-        # Line drawing function.  Will draw a single pixel wide line starting at
-        # x0, y0 and ending at x1, y1.
-        steep = abs(y1 - y0) > abs(x1 - x0)
-        if steep:
-            x0, y0 = y0, x0
-            x1, y1 = y1, x1
-        if x0 > x1:
-            x0, x1 = x1, x0
-            y0, y1 = y1, y0
-        dx = x1 - x0
-        dy = abs(y1 - y0)
-        err = dx // 2
-        if y0 < y1:
-            ystep = 1
-        else:
-            ystep = -1
-        while x0 <= x1:
-            if steep:
-                self.pixel(y0, x0, color)
-            else:
-                self.pixel(x0, y0, color)
-            err -= dy
-            if err < 0:
-                y0 += ystep
-                err += dx
-            x0 += 1
-
-
-class ST7789(ST77xx):
-    def init(self, *, color_mode=ColorMode_65K | ColorMode_16bit):
-        super().init()
-        self._set_color_mode(color_mode)
-        delay_ms(50)
-        self._set_mem_access_mode(0, False, False, False)
-        self.inversion_mode(True)
-        delay_ms(10)
-        self.write(ST77XX_NORON)
-        delay_ms(10)
-        self.fill(0)
-        self.write(ST77XX_DISPON)
-        delay_ms(500)

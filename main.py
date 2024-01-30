@@ -32,12 +32,17 @@ def main():
     while True:
         start = time.ticks_ms()
         display.fill(
-            st7789.color565(
+            display.color565(
                 random.getrandbits(8),
                 random.getrandbits(8),
                 random.getrandbits(8),
             ),
         )
+        for i in range(50):
+            display.pixel(random.randint(0,240),
+                          random.randint(0,240),
+                          display.color565(255,255,255))
+        display.refresh()
         elapsed = time.ticks_ms() - start
         print("Ticks per screen fill:", elapsed)
 
