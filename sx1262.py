@@ -6,7 +6,6 @@
 # See the LICENSE file for more information
 
 # TODO:
-# - Calibrate depending on frequency selected after every configure() call.
 # - Improve modem_is_receiving_packet() if possible at all with the SX1262.
 
 from machine import Pin, SoftSPI
