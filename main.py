@@ -2,7 +2,7 @@
 
 import random
 
-from machine import Pin, SoftSPI
+from machine import Pin, SPI
 import st7789py as st7789
 import time
 from axp2101 import AXP2101
@@ -17,14 +17,10 @@ def main():
     bl = Pin(45,Pin.OUT)
     bl.on()
 
-    sck_pin = Pin(18)
-    mosi_pin = Pin(13)
     # Our display does not have a MISO pin, but the MicroPython
-    # SoftSPI implementation does not allow to avoid specifying one, so
+    # SPI implementation does not allow to avoid specifying one, so
     # we use just a not used pin in the device.
-    notused_miso_pin = Pin(37)
-
-    spi = SoftSPI(baudrate=40000000, polarity=1, sck=sck_pin, mosi=mosi_pin, miso=notused_miso_pin)
+    spi = SPI(1, baudrate=40000000, polarity=1, sck=18, mosi=13, miso=37)
     display = st7789.ST7789(
         spi, 240, 240,
         reset=False,
@@ -34,6 +30,7 @@ def main():
     display.init()
 
     while True:
+        start = time.ticks_ms()
         display.fill(
             st7789.color565(
                 random.getrandbits(8),
@@ -41,6 +38,9 @@ def main():
                 random.getrandbits(8),
             ),
         )
+        elapsed = time.ticks_ms() - start
+        print("Ticks per screen fill:", elapsed)
+
         # Pause 2 seconds.
         time.sleep(2)
 
