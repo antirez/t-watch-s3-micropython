@@ -73,7 +73,7 @@ _DECODE_PIXEL = ">BBB"
 
 class ST7789:
     def __init__(self, spi, width, height, reset, dc, cs=None, backlight=None,
-                 xstart=-1, ystart=-1):
+                 xstart=-1, ystart=-1, mono=False):
         """
         display = st7789.ST7789(
             SPI(1, baudrate=40000000, phase=0, polarity=1),
@@ -90,6 +90,7 @@ class ST7789:
         self.dc = dc
         self.cs = cs
         self.backlight = backlight
+        self.mono = mono
         if xstart >= 0 and ystart >= 0:
             self.xstart = xstart
             self.ystart = ystart
@@ -105,8 +106,20 @@ class ST7789:
                 "without xstart and ystart provided"
             )
 
-        self.rawbuffer = bytearray(240*240*2)
-        self.fb = framebuf.FrameBuffer(self.rawbuffer,240,240,framebuf.RGB565)
+        if self.mono:
+            self.rawbuffer = bytearray(width*height//8)
+            self.fb = framebuf.FrameBuffer(self.rawbuffer,width,height,
+                                           framebuf.MONO_HLSB)
+            # See the show() method. The conversion map is useful
+            # to speedup rendering a bitmap as RGB565.
+            self.mono_conv_map = {
+                byte: bytes(sum(((0xFF, 0xFF) if (byte >> bit) & 1 else (0x00, 0x00) for bit in range(7, -1, -1)), ()))
+                for byte in range(256)
+            }
+        else:
+            self.rawbuffer = bytearray(width*height*2)
+            self.fb = framebuf.FrameBuffer(self.rawbuffer,width,height,
+                                           framebuf.RGB565)
         self.fill = self.fb.fill
         self.pixel = self.fb.pixel
         self.hline = self.fb.hline
@@ -249,7 +262,14 @@ class ST7789:
 
     def show(self):
         self.set_window(0, 0, self.width-1,self.height-1)
-        self.write(None, self.rawbuffer)
+        if self.mono:
+            row = bytearray(self.width*2)
+            for i in range(0,len(self.rawbuffer),self.width//8):
+                for j in range(self.width//8):
+                    row[j*16:(j+1)*16] = self.mono_conv_map[self.rawbuffer[i+j]]
+                self.write(None, row)
+        else:
+            self.write(None, self.rawbuffer)
 
     def contrast(self,level):
         # TODO: implement me!
