@@ -127,6 +127,7 @@ class ST7789:
         self.vline = self.fb.vline
         self.line = self.fb.line
         self.rect = self.fb.rect
+        self.fill_rect = self.fb.fill_rect
         self.ellipse = self.fb.ellipse
         self.poly = self.fb.poly
         self.text = self.fb.text
