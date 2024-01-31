@@ -6,6 +6,7 @@ from machine import Pin, SoftSPI
 import st7789py as st7789
 import time
 from axp2101 import AXP2101
+from haptic_motor import HAPTIC_MOTOR 
 
 def main():
     # Setup the PMU chip.
@@ -33,6 +34,12 @@ def main():
     )
     display.init()
 
+    # vibrate using effect 14
+    motor = HAPTIC_MOTOR(14)	
+    motor.vibrate()	    
+    
+
+    print("displaying random colors")
     while True:
         display.fill(
             st7789.color565(
