@@ -75,7 +75,7 @@ POAHeader = const(1)
 
 class SX1262:
     def __init__(self, pinset, rx_callback, tx_callback = None):
-        self.rx_enabled = False # True if we are in receive mode.
+        self.receiving = False # True if we are in receive mode.
         self.tx_in_progress = False
         self.packet_on_air = False # see modem_is_receiving_packet().
         self.msg_sent = 0
@@ -96,7 +96,7 @@ class SX1262:
         time.sleep_us(500)
         self.reset_pin.on()
         time.sleep_us(500)
-        self.rx_enabled = False
+        self.receiving = False
         self.tx_in_progress = False
 
     def standby(self):
@@ -231,7 +231,7 @@ class SX1262:
         self.set_frequency(freq)
 
         # Use maximum sensibility
-        lora.writereg(RegRxGain,0x96)
+        self.writereg(RegRxGain,0x96)
 
         # Set TCXO voltage to 1.7 with 5000us delay.
         tcxo_delay = int(5000.0 / 15.625)
@@ -297,7 +297,7 @@ class SX1262:
     # will be set to '5'. We can also observe if the chip is in the
     # right mode (tx, rx, standby...).
     def show_status(self):
-        status = lora.command(0xc0,0)[1]
+        status = self.command(0xc0,0)[1]
         print("Chip mode  = ", (status >> 4) & 7)
         print("Cmd status = ", (status >> 1) & 7)
 
@@ -308,7 +308,7 @@ class SX1262:
     # set a timeout and re-enter receive from time to time?
     def receive(self):
         self.command(SetRxCmd,[0xff,0xff,0xff])
-        self.rx_enabled = True
+        self.receiving = True
     
     def get_irq(self):
         reply = self.command(GetIrqStatusCmd,[0,0,0])
@@ -353,7 +353,7 @@ class SX1262:
             # standby mode. However if we were receiving we
             # need to return back to such state.
             if self.transmitted_callback: self.transmitted_callback()
-            if self.rx_enabled: self.receive()
+            if self.receiving: self.receive()
             self.tx_in_progress = False
         elif event & IRQSourcePreambleDetected :
             # Packet detected, we will return true for some
