@@ -144,6 +144,10 @@ class AXP2101:
         # Enable button battery charge.
         self.setbit(0x18,2) # Bit 2 is "Button battery charge enabled"
 
+    def twatch_s3_before_sleep(self):
+        # Disable ADLO1, 2, 3, 4, BLDO2 from register 0x90.
+        self.write(0x90,0)
+
 if  __name__ == "__main__":
     twatch_pmu = AXP2101()
     twatch_pmu.twatch_s3_poweron()
