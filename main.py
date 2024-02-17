@@ -3,7 +3,7 @@
 import random
 
 from machine import Pin, SPI
-import st7789py as st7789
+import st7789_base, st7789_ext
 import time
 from axp2101 import AXP2101
 from haptic_motor import HAPTIC_MOTOR 
@@ -21,35 +21,33 @@ def main():
     # Our display does not have a MISO pin, but the MicroPython
     # SPI implementation does not allow to avoid specifying one, so
     # we use just a not used pin in the device.
-    spi = SPI(1, baudrate=40000000, polarity=1, sck=18, mosi=13, miso=37)
-    display = st7789.ST7789(
-        spi, 240, 240,
+    display = st7789_ext.ST7789(
+        SPI(1, baudrate=40000000, phase=0, polarity=1, sck=18, mosi=13, miso=37),
+        240, 240,
         reset=False,
         dc=Pin(38, Pin.OUT),
         cs=Pin(12, Pin.OUT),
     )
-    display.init()
+    display.init(landscape=False,mirror_y=True,mirror_x=True,inversion=True)
 
     # vibrate using effect 14
     motor = HAPTIC_MOTOR(14)	
     motor.vibrate()	    
-    
 
     print("displaying random colors")
     while True:
         start = time.ticks_ms()
         display.fill(
-            display.color565(
+            display.color(
                 random.getrandbits(8),
                 random.getrandbits(8),
                 random.getrandbits(8),
             ),
         )
-        for i in range(50):
+        for i in range(250):
             display.pixel(random.randint(0,240),
                           random.randint(0,240),
-                          display.color565(255,255,255))
-        display.show()
+                          display.color(255,255,255))
         elapsed = time.ticks_ms() - start
         print("Ticks per screen fill:", elapsed)
 
