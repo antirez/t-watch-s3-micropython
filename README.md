@@ -37,7 +37,7 @@ random pixels are written.
 
 # ST7789v Display
 
-Right now we use [a driver](https://github.com/antirez/ST77xx-pure-MP) I wrote myself for a different project. The driver is conceived to use little memory, so it's a bit slower than it would be ideal. The framebuffer will be added back soon in order to bring better speed.
+Right now we use [a driver](https://github.com/antirez/ST77xx-pure-MP) I wrote myself for a different project. The driver is conceived to use little memory, but it has an optional framebuffer target (240x240x2 bytes of memory used) that is much faster and is used in the example code here.
 
 Please note that the MicroPython SoftSPI implementation is *very* slow.
 It is important to use the hardware SPI of the ESP32-S3. In order to
@@ -65,9 +65,18 @@ display = st7789_ext.ST7789(
 display.init(landscape=False,mirror_y=True,mirror_x=True,inversion=True)
 ```
 
-The speedup with hardware SPI is around 20x. Performances will be much
-better once the framebuffer will be reintroduced, at the cost of MicroPython
-available memory (but the FB will be optional).
+Then you can use directly the graphics primitives (see driver documentation), or if you want more speed, you can enalbe the framebuffer, draw in the framebuffer, and then show the content with the show method:
+
+```
+display.enable_framebuffer()
+display.fb.fill(display.db_color(0,0,0))
+dispaly.fb.text("Hello world",10,10,10,display.fb_color(50,100,150))
+display.show()
+```
+
+The speedup with hardware SPI is around 20x. Performances are much
+better using the in-memory framebuffer. Using both, it is possible to write
+quite fast graphics.
 
 ## Scroller example
 

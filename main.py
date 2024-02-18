@@ -29,6 +29,7 @@ def main():
         cs=Pin(12, Pin.OUT),
     )
     display.init(landscape=False,mirror_y=True,mirror_x=True,inversion=True)
+    display.enable_framebuffer()
 
     # vibrate using effect 14
     motor = HAPTIC_MOTOR(14)	
@@ -37,17 +38,19 @@ def main():
     print("displaying random colors")
     while True:
         start = time.ticks_ms()
-        display.fill(
-            display.color(
+        display.fb.fill(
+            display.fb_color(
                 random.getrandbits(8),
                 random.getrandbits(8),
                 random.getrandbits(8),
             ),
         )
         for i in range(250):
-            display.pixel(random.randint(0,240),
-                          random.randint(0,240),
-                          display.color(255,255,255))
+            display.fb.pixel(random.randint(0,240),
+                             random.randint(0,240),
+                             display.fb_color(255,255,255))
+
+        display.show()
         elapsed = time.ticks_ms() - start
         print("Ticks per screen fill:", elapsed)
 
