@@ -71,15 +71,16 @@ class Scroller:
         self.cols = int(self.xres/self.font_width)
         self.rows = int(self.yres/self.font_height)
 
-    def render_text(self,text,x,y,color):
+    def render_text(self,text,x,y):
         if self.font == self.Font8x8:
-            self.display.text(text, x, y, color)
+            self.display.text(x, y, text, self.display.color(255,255,255),
+                                          self.display.color(0,0,0))
         else:
             for c in text:
-                self.render_4x6_char(c, x, y, color)
+                self.render_4x6_char(c, x, y)
                 x += self.font_width
 
-    def render_4x6_char(self,c,px,py,color):
+    def render_4x6_char(self,c,px,py):
         idx = ord(c)
         if idx > len(FontData4x6)/3:
             idx = ord("?")
@@ -88,7 +89,7 @@ class Scroller:
             if not y & 1: bits >>= 4
             for x in range(0,4):
                 if bits & (1<<(3-x)):
-                    self.display.pixel(px+x,py+y,color)
+                    self.display.pixel(px+x,py+y,self.display.color(255,255,255))
 
     # Return the number of rows needed to display the current self.lines
     # This number may be > self.rows.
@@ -130,7 +131,7 @@ class Scroller:
             if to_consume == 0: to_consume = self.cols
             rowchars = lines[-1][-to_consume:] # Part to display from the end
             lines[-1]=lines[-1][:-to_consume]  # Remaining part.
-            self.render_text(rowchars, 0+self.xoff, y+self.yoff, 1)
+            self.render_text(rowchars, 0+self.xoff, y+self.yoff)
             y -= self.font_height
 
     # Return the minimum time the caller should refresh the screen
@@ -148,10 +149,10 @@ class Scroller:
         return min(icon_min_rt,rt)
 
     # Update the screen content.
-    def refresh(self,show=True):
+    def refresh(self):
         if not self.display: return
         self.update_screensaver_state()
-        self.display.fill(0)
+        self.display.fill(self.display.color(0,0,0))
         if self.state != self.StateSaver:
             minutes = int(time.time()/60) % 4
             # We use minutes from 0 to 3 to move text one pixel
@@ -162,9 +163,6 @@ class Scroller:
             self.draw_text()
         random_icons_offset = self.state == self.StateSaver
         if self.icons: self.icons.refresh(random_offset=random_icons_offset)
-        if show:
-            self.display.contrast(self.get_contrast())
-            self.display.show()
 
     # Convert certain unicode points to our 4x6 font characters.
     def convert_from_utf8(self,msg):
@@ -182,8 +180,9 @@ class Scroller:
         self.last_update = time.time()
 
 if  __name__ == "__main__":
-    import st7789py
     from axp2101 import AXP2101
+    from machine import Pin, SPI
+    import st7789_base, st7789_ext
 
     # Setup the PMU chip & turn on the backlight.
     twatch_pmu = AXP2101()
@@ -191,16 +190,15 @@ if  __name__ == "__main__":
     bl = Pin(45,Pin.OUT)
     bl.on()
 
-    # Setup TFT in Monochrome mode.
-    spi = SPI(1, baudrate=40000000, polarity=1, sck=18, mosi=13, miso=37)
-    display = st7789.ST7789(
-        spi, 240, 240,
+    # Setup TFT.
+    display = st7789_ext.ST7789(
+        SPI(1, baudrate=40000000, phase=0, polarity=1, sck=18, mosi=13, miso=37),
+        240, 240,
         reset=False,
         dc=Pin(38, Pin.OUT),
         cs=Pin(12, Pin.OUT),
-        mono=True
     )
-    display.init()
+    display.init(landscape=False,mirror_y=True,mirror_x=True,inversion=True)
 
     # Use the Scroller.
     scroller = Scroller(display)
@@ -209,3 +207,4 @@ if  __name__ == "__main__":
         counter += 1
         scroller.print(str(counter))
         scroller.refresh()
+        time.sleep(0.1)

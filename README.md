@@ -85,6 +85,9 @@ outputting a sequence, with vertical scrolling and so forth.
 The Scroller also implements line wrapping, but that's not
 visible in the example.
 
+WARNING: right now this example will be very slow since the TFT driver was
+updated but the local framebuffer support was removed to be rewritten. This wil lbe fixed in the future, hopefully.
+
 ## Work in progress
 
 This is a work in progress, my goal is to just gain enough access to the
