@@ -24,20 +24,20 @@ esptool.py --chip esp32s3 --port /dev/tty.usbmodem* write_flash -z 0 ESP32_GENER
 
 ## Transferring the example files on the device
 
-Use [talk32](https://github.com/antirez/talk32) to transfer the .py
-files to the device:
 
-    talk32 /dev/tty.your.usb.serial.device put *.py
+    mpremote cp *.py :
 
 Then enter the device in REPL mode:
 
-
-    talk32 /dev/tty.your.usb.serial.device repl
+    mpremote repl
 
 Hit Ctrl+D to reset the device and you should see a demo usign the
-TFT screen. The screen should change color every 2 seconds.
+TFT screen. The screen should change color every 2 seconds, a few
+random pixels are written.
 
-## Display SPI setup
+# ST7789v Display
+
+Right now we use [a driver](https://github.com/antirez/ST77xx-pure-MP) I wrote myself for a different project. The driver is conceived to use little memory, so it's a bit slower than it would be ideal. The framebuffer will be added back soon in order to bring better speed.
 
 Please note that the MicroPython SoftSPI implementation is *very* slow.
 It is important to use the hardware SPI of the ESP32-S3. In order to
@@ -47,38 +47,35 @@ setup the SPI for the display, use code like this:
 # Our display does not have a MISO pin, but the MicroPython
 # SPI implementation does not allow to avoid specifying one, so
 # we use just a not used pin in the device.
-spi = SPI(1, baudrate=40000000, polarity=1, sck=18, mosi=13, miso=37)
-display = st7789.ST7789(
-    spi, 240, 240,
+
+# Power on the display backlight.
+bl = Pin(45,Pin.OUT)
+bl.on()
+
+# Our display does not have a MISO pin, but the MicroPython
+# SPI implementation does not allow to avoid specifying one, so
+# we use just a not used pin in the device.
+display = st7789_ext.ST7789(
+    SPI(1, baudrate=40000000, phase=0, polarity=1, sck=18, mosi=13, miso=37),
+    240, 240,
     reset=False,
     dc=Pin(38, Pin.OUT),
     cs=Pin(12, Pin.OUT),
 )
-display.init()
+display.init(landscape=False,mirror_y=True,mirror_x=True,inversion=True)
 ```
 
-The speedup is around 20x. A full fill of the display with pixels of the
-same color takes around 29 milliseconds.
+The speedup with hardware SPI is around 20x. Performances will be much
+better once the framebuffer will be reintroduced, at the cost of MicroPython
+available memory (but the FB will be optional).
 
-The ST7789 display driver in this repository was rewritten in order to
-use the MicroPython framebuffer abstraction (at the cost of some memory).
-It means that normally we write in the framebuffer, and only blit the
-content to the actual screen when the `show` method is called.
-This improves performances, allows to use the bitmap font available in
-the framebuffer implementation, together with the other graphical primitives
-available, and in general makes adapting other code (for example written
-for the SD1306 oled display) to this display much simpler.
-
-## Running the examples
-
-### Scroller
+## Scroller example
 
 The Scroller example shows how to use the TFT driver in monochrome
 mode, to save memory in the framebuffer. To test it:
 
-    talk32 /dev/tty.usbmodem1245661 put st7789py.py
-    talk32 /dev/tty.usbmodem1245661 put axp2101.py
-    talk32 /dev/tty.usbmodem1234561 run examples/scroller.py
+    mpremote cp *.py :
+    mpremote run examples/scroller.py
 
 You will see numbers on the screen like if it was a terminal
 outputting a sequence, with vertical scrolling and so forth.
@@ -88,16 +85,21 @@ visible in the example.
 WARNING: right now this example will be very slow since the TFT driver was
 updated but the local framebuffer support was removed to be rewritten. This wil lbe fixed in the future, hopefully.
 
-## Work in progress
+# Touch driver
 
-This is a work in progress, my goal is to just gain enough access to the
-device in order to port [FreakWAN](https://github.com/antirez/FreakWAN)
-into this device. My plans if I find some time is to write an SX126x
-driver similar to the one I wrote for the SX127x LoRa chip (part of
-FreakWAN), implement the terminal-style display code for the watch
-and not much than this.
+You can find the code in `ft6x06.py`. There is a test main at the end
+of the file.
 
-The problem is that there are no guarantees this device will be produced
-in the future, so since I own two of these, I'll try to make them
-working, but likely most of the future developments will focus more
-on the T-BEAM and T3 devices that are sold for many years.
+    mpremote run ft6x06.py
+
+Then touch the device screen to see updates.
+
+Another exmaple, that let you write on the screen with your finger, can
+be executed with:
+
+    mpremote cp *.py :
+    mpremote run examples/touch.py
+
+# LoRa driver for the SX1262
+
+Check the `sx1262.py` file. It contains a full implementation of the LoRa driver for this device. There is a small test program at the end of the file. If you want to see a more serious port, check the [FreakWAN](https://github.com/antirez/freakwan) project.
