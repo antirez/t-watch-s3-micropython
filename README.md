@@ -80,19 +80,15 @@ quite fast graphics.
 
 ## Scroller example
 
-The Scroller example shows how to use the TFT driver in monochrome
-mode, to save memory in the framebuffer. To test it:
+The Scroller example shows how to use the TFT driver like a terminal.
 
     mpremote cp *.py :
     mpremote run examples/scroller.py
 
 You will see numbers on the screen like if it was a terminal
-outputting a sequence, with vertical scrolling and so forth.
+outputting a sequence, with smooth vertical scrolling.
 The Scroller also implements line wrapping, but that's not
 visible in the example.
-
-WARNING: right now this example will be very slow since the TFT driver was
-updated but the local framebuffer support was removed to be rewritten. This wil lbe fixed in the future, hopefully.
 
 # Touch driver
 
