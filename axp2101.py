@@ -37,6 +37,18 @@ class AXP2101:
         low_bits = self.read(0x35)
         return (high_bits&0b111111)<<8 | low_bits
 
+    # Return the charge percentage. We just use
+    # linear interpolation from 4.35v to 2.6v
+    def get_battery_perc(self):
+        vmax = 4.35
+        vmin = 2.6
+        dv = vmax-vmin
+        v = self.get_battery_voltage()/1000
+        v -= vmin
+        if v <= 0: return 0
+        if v >= dv: return 100
+        return int(100/dv*v)
+
     # T-WATCH S3 specific power-on steps.
     def twatch_s3_poweron(self):
         # Read PMU STATUS 1
